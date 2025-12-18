@@ -143,7 +143,8 @@ def main():
 		# 소제목 전처리
 		subtitle_maps = []
 		for subtitle in subtitles:
-			next_sibling = subtitle.find_element(By.XPATH, "following-sibling::*[1]")
+			# 바로 뒤에 오는 형제 요소 중 클래스명이 'p'인 요소를 찾습니다.
+			next_sibling = subtitle.find_element(By.XPATH, "following-sibling::*[contains(@class, 'p')][1]")
 			child = next_sibling.find_element(By.CLASS_NAME, "verse-span")
 
 			source = child.get_attribute("data-verse-id")
@@ -158,7 +159,7 @@ def main():
 			verse_source = footnote.get_attribute('id').split('.', 1)[1]
 			up = footnote.find_element(By.XPATH, "../preceding-sibling::*[1]")
 
-			# 각주 앞에 글자가 몇 개 있는지 검사하는 코드드
+			# 각주 앞에 글자가 몇 개 있는지 검사하는 코드
 			if is_verse_num(up) :
 				# 각주 앞 절 표시가 있다는 것은 글자가 없다는 뜻이므로 0
 				char_source = 0
