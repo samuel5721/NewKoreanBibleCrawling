@@ -118,6 +118,9 @@ def main():
 		# 소제목 가져오기
 		subtitles = driver.find_elements(By.CLASS_NAME, "s")
 
+		# 단락 가져오기
+		paragraphs = driver.find_elements(By.CLASS_NAME, "p")
+
 		# 각주 가져오기
 		footnotes = driver.find_elements(By.CSS_SELECTOR, "[class*='ftext hidden']")
 
@@ -153,6 +156,17 @@ def main():
 		# subtitle_maps는 소제목을 저장하며, 자신 바로 뒤에 나오는 구절의 서명.장.절을 키로 하고 자신의 내용을 값으로 하는 딕셔너리의 리스트입니다.
 		# [{'GEN.1.1': '하나님이 온 누리를 지으시다'}, ...]
 
+		# 단락 전처리
+		paragraph_maps = []
+		for idx, paragraph in enumerate(paragraphs) :
+			child = paragraph.find_element(By.CLASS_NAME, "verse-span")
+			
+			source = child.get_attribute("data-verse-id")
+			text = str(idx+1)
+			paragraph_maps.append({source: text})
+		# paragraph_maps는 구절들의 집합인 단락을 저장하며, 단락 안에서 처음 나오는 구절의 서명.장.절을 키로 하고 같은 장에서의 단락의 순서를 값으로 하는 딕셔너리의 리스트입니다.
+		# [{'GEN.1.1': '1'}, {'GEN.1.6': '2'}, {'GEN.1.9': '3'}, ...]
+
 		# 각주 전처리
 		footnote_maps = []
 		for footnote in footnotes :
@@ -187,6 +201,7 @@ def main():
 
 		print(verse_maps)
 		print(subtitle_maps)
+		print(paragraph_maps)
 		print(footnote_maps)
 
 	except Exception as e:
