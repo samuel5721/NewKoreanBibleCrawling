@@ -88,11 +88,17 @@ def get_verce_texts(driver) :
 	verse_nums = driver.find_elements(By.CSS_SELECTOR, ".verse-span:has(> .v)")
 	return [i for i in verses if i not in verse_nums]
 
+def get_titles(driver) :
+	return driver.find_elements(By.CLASS_NAME, "ms")
+
 def get_subtitles(driver) :
 	return driver.find_elements(By.CLASS_NAME, "s")
 
 def get_paragraphs(driver) :
 	return driver.find_elements(By.CSS_SELECTOR, ".p, .m")
+
+def get_quotes(driver) :
+	return driver.find_elements(By.CLASS_NAME, "q1")
 
 def get_footnotes(driver) :
 	return driver.find_elements(By.CSS_SELECTOR, "[class*='ftext hidden']")
@@ -111,7 +117,21 @@ def setup_driver():
 
 def main():
 	#TODO 동적 크롤링 구현하기
+	#TODO 인용(q1) 처리하기
+	#TODO ms, s, mr, r
 	#TODO 크롤링 map json으로 변환
+
+	# p, m 단락
+	# q1 인용
+	# ms 대제목
+	# s 소제목
+	# mr 대제목의 레퍼런스절
+	# r 소제목의 레퍼런스절
+
+	# p, m, q1 > verse-span > v : 절
+	# p, m, q1 > verse-span : 본문
+	# p, m, q1 > ft 서.장.절 > ftext hidden : 각주
+
 
 	testament = "GEN"
 	chapter = 1
@@ -125,6 +145,7 @@ def main():
 		all_verse_maps = []
 		all_subtitle_maps = []
 		all_paragraph_maps = []
+		all_quote_maps = []
 		all_footnote_maps = []
 
 		for i in range(2):
@@ -142,6 +163,7 @@ def main():
 			ch_verse_texts = get_verce_texts(driver)
 			ch_subtitles = get_subtitles(driver)
 			ch_paragraphs = get_paragraphs(driver)
+			ch_quotes = get_quotes(driver)
 			ch_footnotes = get_footnotes(driver)
 
 			# 절 본문 전처리
@@ -151,6 +173,9 @@ def main():
 			for verse_text in ch_verse_texts:
 				now_source = verse_text.get_attribute("data-verse-id")
 				if temp_source == now_source:
+					#만약 이 절이 인용구라면 앞에 띄어쓰기를 추가한다.
+					if "q1" in verse_text.find_element(By.XPATH, "..").get_attribute("class").split():
+							temp_text += '\n'
 					temp_text += verse_text.get_attribute("innerHTML")
 				else:
 					ch_verse_maps.append({temp_source: temp_text})
@@ -169,10 +194,7 @@ def main():
 			ch_subtitle_maps = []
 			for subtitle in ch_subtitles:
 				# 바로 뒤에 오는 형제 요소 중 클래스명이 'p'인 요소를 찾습니다.
-				next_sibling = subtitle.find_element(
-					By.XPATH,
-					"following-sibling::*[contains(@class, 'p')][1]",
-				)
+				next_sibling = subtitle.find_element(By.XPATH, "following-sibling::*[contains(@class, 'p')][1]",)
 				child = next_sibling.find_element(By.CLASS_NAME, "verse-span")
 
 				source = child.get_attribute("data-verse-id")
@@ -196,6 +218,8 @@ def main():
 			# 단락의 종류는 p, m이 있습니다. p는 평범한 본문들의 집합입니다. m은 q1 이후 나타나는 단락으로, p와 차이점은 없어 보입니다.
 			# [{'GEN.1.1': 'p'}, {'GEN.1.6': 'p'}, {'GEN.1.9': 'p'}, ...]
 			all_paragraph_maps.extend(ch_paragraph_maps)
+
+			# 인용 전처리
 
 			# 각주 전처리
 			ch_footnote_maps = []
@@ -221,18 +245,13 @@ def main():
 						prev_str = more_up.get_attribute("innerHTML")
 						while True:
 							# 더 위의 객체를 찾는다 (없을 수도 있으므로 방어적으로)
-							prev_siblings = more_up.find_elements(
-								By.XPATH, "preceding-sibling::*[1]"
-							)
-							if not prev_siblings:
-								break
+							prev_siblings = more_up.find_elements(By.XPATH, "preceding-sibling::*[1]")
+							if not prev_siblings: break
 							more_up = prev_siblings[0]
 							# 더 위의 객체가 절 표시라면 더 이상의 글자는 없으므로 종료
-							if is_verse_num(more_up):
-								break
+							if is_verse_num(more_up): break
 							# 더 위의 객체가 각주라면 그 위에 또 글자가 있다는 뜻이므로 continue
-							if is_footnote(more_up):
-								continue
+							if is_footnote(more_up): continue
 							# 위의 모든 상황에 해당하지 않는다면 같은 절의 또 다른 글자이므로 이를 prev_str에 추가
 							prev_str = more_up.get_attribute("innerHTML") + prev_str
 						char_source = len(prev_str)
