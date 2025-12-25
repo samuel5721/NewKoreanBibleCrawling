@@ -6,6 +6,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 import time
+import os
 
 bible_dictionary = {
     "GEN": "창세기",
@@ -76,6 +77,16 @@ bible_dictionary = {
     "REV": "요한계시록"
 }
 
+def inject_dom_utils(driver, js_path="dom_utils.js"):
+    js_code = None
+    try:
+        abs_path = os.path.join(os.path.dirname(__file__), js_path)
+        with open(abs_path, "r", encoding="utf-8") as f:
+            js_code = f.read()
+    except Exception:
+        print(f"유틸 로드 중 에러 발생생: {Exception}")
+    driver.execute_script(js_code)
+
 def is_verse_num(element) :
 	return "verse-span" in (element.get_attribute("class") or "") and element.find_elements(By.CSS_SELECTOR, ".v")
 
@@ -141,7 +152,6 @@ def main():
 	wait = WebDriverWait(driver, 10)
 	
 	try:
-		# 최종 결과를 담을 리스트들 (순수 파이썬 데이터만 저장)
 		all_verse_maps = []
 		all_subtitle_maps = []
 		all_paragraph_maps = []
@@ -157,6 +167,7 @@ def main():
 			print(f"페이지 로드 완료: {driver.title}")
 			# 페이지 로드 대기
 			wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
+			inject_dom_utils(driver)
 			time.sleep(0.5)
 
 			# 이 장에서 사용할 WebElement 들만 가져오기
@@ -176,11 +187,11 @@ def main():
 					#만약 이 절이 인용구라면 앞에 띄어쓰기를 추가한다.
 					if "q1" in verse_text.find_element(By.XPATH, "..").get_attribute("class").split():
 							temp_text += '\n'
-					temp_text += verse_text.get_attribute("innerHTML")
+					temp_text += verse_text.get_attribute("textContent")
 				else:
 					ch_verse_maps.append({temp_source: temp_text})
 					temp_source = now_source
-					temp_text = verse_text.get_attribute("innerHTML")
+					temp_text = verse_text.get_attribute("textContent")
 
 			# 첫 번째 dummy(None) 제거 및 마지막 절 추가
 			ch_verse_maps.pop(0)
@@ -198,7 +209,7 @@ def main():
 				child = next_sibling.find_element(By.CLASS_NAME, "verse-span")
 
 				source = child.get_attribute("data-verse-id")
-				text = subtitle.get_attribute("innerHTML")
+				text = subtitle.get_attribute("textContent")
 				ch_subtitle_maps.append({source: text})
 
 			# subtitle_maps는 소제목을 저장하며, 자신 바로 뒤에 나오는 구절의 서명.장.절을 키로 하고 자신의 내용을 값으로 하는 딕셔너리의 리스트입니다.
@@ -226,38 +237,21 @@ def main():
 			for footnote in ch_footnotes:
 				verse_source = footnote.get_attribute("id").split(".", 1)[1]
 
-				# 바로 위에 선행 형제가 없는 경우가 있어 NoSuchElement 문제가 발생할 수 있으므로
-				# find_elements 를 사용해 방어적으로 처리한다.
-				ups = footnote.find_elements(By.XPATH, "../preceding-sibling::*[1]")
-				if not ups:
-					# 선행 형제가 전혀 없다면 각주 앞에 글자가 없다고 보고 0으로 처리
-					char_source = 0
-				else:
-					up = ups[0]
+				# 각주 앞에 글자가 몇 개 있는지 검사하는 코드
+				char_source = driver.execute_script(
+					"return window.BibleDOM.getCharOffsetBeforeFootnote(arguments[0]);",
+					footnote
+				)
 
-					#! q1(quote) 구문에 대한 코드 수정 필요(창2)
-					# 각주 앞에 글자가 몇 개 있는지 검사하는 코드
-					if is_verse_num(up):
-						# 각주 앞 절 표시가 있다는 것은 글자가 없다는 뜻이므로 0
-						char_source = 0
-					else:
-						more_up = up
-						prev_str = more_up.get_attribute("innerHTML")
-						while True:
-							# 더 위의 객체를 찾는다 (없을 수도 있으므로 방어적으로)
-							prev_siblings = more_up.find_elements(By.XPATH, "preceding-sibling::*[1]")
-							if not prev_siblings: break
-							more_up = prev_siblings[0]
-							# 더 위의 객체가 절 표시라면 더 이상의 글자는 없으므로 종료
-							if is_verse_num(more_up): break
-							# 더 위의 객체가 각주라면 그 위에 또 글자가 있다는 뜻이므로 continue
-							if is_footnote(more_up): continue
-							# 위의 모든 상황에 해당하지 않는다면 같은 절의 또 다른 글자이므로 이를 prev_str에 추가
-							prev_str = more_up.get_attribute("innerHTML") + prev_str
-						char_source = len(prev_str)
+				dbg = driver.execute_script(
+						"return window.BibleDOM.debugFootnote(arguments[0]);",
+						footnote
+				)
+				print(dbg)
+
 
 				source = verse_source + "." + str(char_source)
-				text = footnote.get_attribute("innerHTML")
+				text = footnote.get_attribute("textContent")
 				ch_footnote_maps.append({source: text})
 			
 			# footname_maps는 각주를 저장하며, 구절의 서명.장.절.{자신이 나오기 전 해당 절의 글자 수}를 키로 하고 자신의 내용을 값으로 하는 딕셔너리의 리스트입니다.
