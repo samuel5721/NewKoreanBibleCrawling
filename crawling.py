@@ -153,6 +153,7 @@ def main():
 	
 	try:
 		all_verse_maps = []
+		all_title_maps = []
 		all_subtitle_maps = []
 		all_paragraph_maps = []
 		all_quote_maps = []
@@ -172,6 +173,7 @@ def main():
 
 			# 이 장에서 사용할 WebElement 들만 가져오기
 			ch_verse_texts = get_verce_texts(driver)
+			ch_titles = get_titles(driver)
 			ch_subtitles = get_subtitles(driver)
 			ch_paragraphs = get_paragraphs(driver)
 			ch_quotes = get_quotes(driver)
@@ -201,11 +203,25 @@ def main():
 			# [{'GEN.1.1': '처음에 하나님이 하늘과 땅을 창조하셨다.}, {'GEN.1.2': '땅은 거칠고 비어 있었다. 어둠이 깊은 물 위에 깔려... ...]
 			all_verse_maps.extend(ch_verse_maps)
 
+			# 제목 전처리
+			ch_title_maps = []
+			for title in ch_titles:
+				# 바로 뒤에 오는 형제 요소의 자식 중 verse-span인 요소를 찾습니다.
+				next_sibling = title.find_element(By.XPATH, "following-sibling::*[.//*[contains(@class,'verse-span')]][1]")
+				child = next_sibling.find_element(By.CLASS_NAME, "verse-span")
+
+				source = child.get_attribute("data-verse-id")
+				text = title.get_attribute("textContent")
+				ch_title_maps.append({source: text})
+			# title_maps는 제목을 저장하며, 자신 바로 뒤에 나오는 구절의 서명.장.절을 키로 하고 자신의 내용을 값으로 하는 딕셔너리의 리스트입니다.
+			# [{'GEN.1.1': '하나님이 온 누리를 지으시다'}, ...]
+			all_title_maps.extend(ch_title_maps)
+
 			# 소제목 전처리
 			ch_subtitle_maps = []
 			for subtitle in ch_subtitles:
-				# 바로 뒤에 오는 형제 요소 중 클래스명이 'p'인 요소를 찾습니다.
-				next_sibling = subtitle.find_element(By.XPATH, "following-sibling::*[contains(@class, 'p')][1]",)
+				# 바로 뒤에 오는 형제 요소의 자식 중 verse-span인 요소를 찾습니다.
+				next_sibling = subtitle.find_element(By.XPATH, "following-sibling::*[.//*[contains(@class,'verse-span')]][1]")
 				child = next_sibling.find_element(By.CLASS_NAME, "verse-span")
 
 				source = child.get_attribute("data-verse-id")
