@@ -155,7 +155,7 @@ def main():
 		all_paragraph_maps = []
 		all_footnote_maps = []
 
-		for i in range(5):
+		for i in range(50):
 			testament = "GEN"
 			chapter = i + 1
 			url = f"https://www.bskorea.or.kr/KNT/index.php?chapter={testament}.{chapter}"
