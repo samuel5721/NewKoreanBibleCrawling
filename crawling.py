@@ -7,6 +7,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 import time
 import os
+import json
 
 bible_dictionary = {
     "GEN": "창세기",
@@ -267,11 +268,15 @@ def main():
 			# {'id': 'GEN.1.1.0', 'text': '또는 ‘태초에’'}, {'id': 'GEN.1.2.39', 'text': '또는 ‘하나님의 바람’'} ...
 			all_footnote_maps.extend(ch_footnote_maps)
 
-		
-		print(all_verse_maps)
-		print(all_title_maps)
-		print(all_paragraph_maps)
-		print(all_footnote_maps)
+		json_output = {
+			"verses": all_verse_maps,
+			"titles": all_title_maps,
+			"paragraphs": all_paragraph_maps,
+			"footnotes": all_footnote_maps
+		}
+
+		with open("result.json", "w", encoding="utf-8") as f:
+				json.dump(json_output, f, ensure_ascii=False, indent=2)
 
 	except Exception as e:
 		print(f"에러 발생: {e}")
