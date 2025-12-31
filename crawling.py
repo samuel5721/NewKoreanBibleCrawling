@@ -103,6 +103,9 @@ def get_verce_texts(driver) :
 def get_titles(driver) :
 	return driver.find_elements(By.CSS_SELECTOR, ".ms, .s")
 
+def get_references(driver) :
+	return driver.find_elements(By.CSS_SELECTOR, ".mr, .r")
+
 def get_paragraphs(driver) :
 	return driver.find_elements(By.CSS_SELECTOR, ".p, .m")
 
@@ -152,6 +155,7 @@ def main():
 	try:
 		all_verse_maps = []
 		all_title_maps = []
+		all_reference_maps = []
 		all_paragraph_maps = []
 		all_footnote_maps = []
 
@@ -170,6 +174,7 @@ def main():
 			# 이 장에서 사용할 WebElement 들만 가져오기
 			ch_verse_texts = get_verce_texts(driver)
 			ch_titles = get_titles(driver)
+			ch_references = get_references(driver)
 			ch_paragraphs = get_paragraphs(driver)
 			ch_footnotes = get_footnotes(driver)
 
@@ -180,7 +185,7 @@ def main():
 			for verse_text in ch_verse_texts:
 				now_source = verse_text.get_attribute("data-verse-id")
 				if temp_source == now_source:
-					#만약 이 절이 인용구라면 앞에 띄어쓰기를 추가한다.
+					#만약 이 절이 인용구라면 앞에 개행을 추가한다.
 					if "q1" in verse_text.find_element(By.XPATH, "..").get_attribute("class").split():
 							temp_text += '\n'
 					temp_text += verse_text.get_attribute("textContent")
@@ -221,9 +226,30 @@ def main():
 			# [{'id': 'GEN.1.1', 'text': '하나님이 온 누리를 지으시다', 'type': 's'}, ...
 			all_title_maps.extend(ch_title_maps)
 
+			# 레퍼런스 전처리
+			ch_reference_maps = []
+			for reference in ch_references :
+				# 바로 뒤에 오는 형제 요소의 자식 중 verse-span인 요소를 찾습니다.
+				next_sibling = reference.find_element(By.XPATH, "following-sibling::*[.//*[contains(@class,'verse-span')]][1]")
+				child = next_sibling.find_element(By.CLASS_NAME, "verse-span")
+
+				inner_references = reference.find_elements(By.XPATH, "./*")
+
+				source = child.get_attribute("data-verse-id")
+				reference_type = reference.get_attribute("class")
+
+				addrs = []
+				for inner_reference in inner_references :
+					start_point = inner_reference.get_attribute("id").split('-')[0]
+					end_point = inner_reference.get_attribute("id").split('-')[1]
+					addrs.append({'start': start_point, 'end':end_point})
+
+				ch_reference_maps.append({'id': source, 'type':reference_type, 'verses':addrs})
+			all_reference_maps.extend(ch_reference_maps)
+
 			# 단락 전처리
 			ch_paragraph_maps = []
-			for idx, paragraph in enumerate(ch_paragraphs):
+			for paragraph in ch_paragraphs:
 				child = paragraph.find_element(By.CLASS_NAME, "verse-span")
 
 				source = child.get_attribute("data-verse-id")
@@ -249,13 +275,10 @@ def main():
 					"return window.BibleDOM.getCharOffsetBeforeFootnote(arguments[0]);",
 					footnote
 				)
-
-				dbg = driver.execute_script(
-						"return window.BibleDOM.debugFootnote(arguments[0]);",
-						footnote
-				)
-				print(dbg)
-
+				# dbg = driver.execute_script(
+				# 		"return window.BibleDOM.debugFootnote(arguments[0]);",
+				# 		footnote
+				# )
 
 				source = verse_source + "." + str(char_source)
 				text = footnote.get_attribute("textContent")
@@ -271,6 +294,7 @@ def main():
 		json_output = {
 			"verses": all_verse_maps,
 			"titles": all_title_maps,
+			"references": all_reference_maps,
 			"paragraphs": all_paragraph_maps,
 			"footnotes": all_footnote_maps
 		}
